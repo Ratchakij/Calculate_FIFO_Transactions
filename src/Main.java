@@ -7,9 +7,10 @@ import java.util.Collections;
 import java.util.Scanner;
 public class Main {
 	private static ArrayList<Transaction> transList = new ArrayList<Transaction>();
-	public static ArrayList<Transaction> buyList = new ArrayList<Transaction>();
-	public static ArrayList<Transaction> sellList = new ArrayList<Transaction>();
-	public static Transaction parse(String line) {
+	private static ArrayList<Coin> walletList = new ArrayList<Coin>();
+	private static ArrayList<Transaction> buyList = new ArrayList<Transaction>();
+	private static ArrayList<Transaction> sellList = new ArrayList<Transaction>();
+	private static Transaction parse(String line) {
 		Transaction trans = new Transaction();
 		String[] ss = line.split(" ");
 		trans.order = ss[0];
@@ -32,6 +33,23 @@ public class Main {
 			}
 		}
 	}
+	public static void getWallet() {
+		System.out.println("Your Wallet");
+		for (Coin list : walletList) {
+			System.out.println(list.coinName + " = " + list.coinqty);
+		} ;
+	};
+	public static void setWallet(String sCoin, double sQty) {
+		System.out.println("Your Wallet");
+		for (int i = 0; i < walletList.size(); i++) {
+			if (sCoin.equals(walletList.get(i).coinName)) {
+				walletList.get(i).coinqty -= sQty;
+			} ;
+		}
+		for (Coin list : walletList) {
+			System.out.println(list.coinName + " = " + list.coinqty);
+		} ;
+	};
 	public static void main(String[] args) {
 		File file = new File("D:crypto_tax.txt");
 		Scanner fileSc = null;
@@ -51,14 +69,26 @@ public class Main {
 		for (Transaction list : transList) {
 			if (list.order.equals("B")) {
 				buyList.add(list);
+				Coin w = new Coin(list.coin_name, list.coin_qty);
+				int count = 0;
+				for (int i = 0; i < walletList.size(); i++) {
+					if (w.coinName.equals(walletList.get(i).coinName)) {
+						walletList.get(i).coinqty += w.coinqty;
+						count += 1;
+						break;
+					}
+				}
+				if (count == 0) walletList.add(w);
 			} else {
 				sellList.add(list);
 			}
 		}
+		getWallet();
+		System.out.println("===============================================");
 		sort(buyList);
 		double profitAmount = 0;
-
 		for (int i = 0; i < sellList.size(); i++) {
+			int check = 0;
 			for (int j = 0; j < buyList.size(); j++) {
 				double profit = 0;
 				getList(sellList);
@@ -69,30 +99,47 @@ public class Main {
 					System.out.println("If Selling Coin = 0 break");
 					break;
 				}
-
 				getList(buyList);
 				String bName = buyList.get(j).coin_name;
 				double bPrice = buyList.get(j).price;
 				double bQty = buyList.get(j).coin_qty;
 				if (sName.equals(bName)) {
-					if (sQty < bQty) {
-						profit = sPrice > bPrice ? (sPrice - bPrice) * sQty : -((bPrice - sPrice) * sQty);
-						System.out.println("profit if = " + profit);
-						buyList.get(j).coin_qty -= sQty;
-						sellList.get(i).coin_qty = 0;
-					} else {
-						profit = sPrice > bPrice ? (sPrice - bPrice) * bQty : -((bPrice - sPrice) * bQty);
-						System.out.println("profit else = " + profit);
-						sellList.get(i).coin_qty -= bQty;
-						buyList.remove(j);
-						j -= 1;
+					for (Coin list : walletList) {
+						if (sName.equals(list.coinName)) {
+							if (sQty > list.coinqty) {
+								check = 0;
+							} else {
+								System.out.println("Order Success");
+								check = 1;
+							}
+						}
+					} ;
+					if (check == 1) {
+						if (sQty < bQty) {
+							profit = sPrice > bPrice ? (sPrice - bPrice) * sQty : -((bPrice - sPrice) * sQty);
+							System.out.println("profit = " + profit);
+							setWallet(sName, sellList.get(i).coin_qty);
+							buyList.get(j).coin_qty -= sQty;
+							sellList.get(i).coin_qty = 0;
+						} else {
+							profit = sPrice > bPrice ? (sPrice - bPrice) * bQty : -((bPrice - sPrice) * bQty);
+							System.out.println("profit = " + profit);
+							setWallet(sName, bQty);
+							sellList.get(i).coin_qty -= bQty;
+							buyList.remove(j);
+							j -= 1;
+						}
 					}
 				}
 				profitAmount += profit;
 			}
+			if (check == 0) {
+				System.out.println("ERROR!!! Not Enough Coin!!!");
+				break;
+			} ;
 			System.out.println("===============================================");
 		}
-
-		System.out.println("profitAmount = " + profitAmount);
+		System.out.println(String.format("profitAmount = %,.2f", profitAmount));
+		getWallet();
 	}
 }
